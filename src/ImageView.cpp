@@ -249,7 +249,7 @@ void Nya::ImageView::GetImage(std::function<void(bool success)> finished = nullp
     if (!NSFWEnabled) INFO("Endpoint URL: {}", endpointURL);
     
     // Get the image url from the api
-    NyaAPI::get_path_from_list_api(source, endpointURL, 10.0f, 0, [this, finished, NSFWEnabled](bool success, std::string url) {
+    NyaAPI::get_path_from_json_api(source, endpointURL, 10.0f, [this, finished, NSFWEnabled](bool success, std::string url) {
         // If we failed to get the image url
         if (!success) {
             // Error getting things
@@ -322,7 +322,121 @@ void Nya::ImageView::GetImage(std::function<void(bool success)> finished = nullp
      
     }, authenticated ? "FP-Public-naEjca70OhKMtq67WpzaN8Gs" : "");
   } else if (source->Mode == DataMode::List) {
+    // Better way to do this instead of ctrl+c ctrl+v of the first part, probley, will I do that instead, probley not.
+    // API is authenticated
+    bool authenticated = source->Mode == DataMode::Authenticated;
+      
+    // Construct the url
+    // TODO: check if endpoint from the setting exists and make it dynamic
 
+    std::string endpointValue = EndpointConfigUtils::getEndpointValue(currentAPI, NSFWEnabled);
+    
+    // Fallback to sfw if nsfw is enabled and no nsfw endpoint is found
+    if (endpointValue == "" && NSFWEnabled) {
+        endpointValue = EndpointConfigUtils::getEndpointValue(currentAPI, false);
+    }
+
+    bool nsfwEmpty = source->NsfwEndpoints.empty();
+    bool sfwEmpty = source->SfwEndpoints.empty();
+
+    // If the endpoint is random, get a random endpoint
+    if (endpointValue == "random") {
+        if (NSFWEnabled) {
+            if (nsfwEmpty) {
+                auto endpoint = NyaAPI::getRandomEndpoint(&source->SfwEndpoints);
+                if (endpoint != nullptr) endpointValue = endpoint->url;
+            } else {
+                auto endpoint = NyaAPI::getRandomEndpoint(&source->NsfwEndpoints);
+                if (endpoint != nullptr) endpointValue = endpoint->url;
+            }
+        } else {
+            if (sfwEmpty) {
+                // DO NOT FALLBACK TO NSFW since it is disabled
+                endpointValue = "";
+            } else {
+                auto endpoint = NyaAPI::getRandomEndpoint(&source->SfwEndpoints);
+                if (endpoint != nullptr) endpointValue = endpoint->url;
+            }
+        }
+    }
+
+    std::string endpointURL = source->BaseEndpoint + endpointValue;
+
+    if (!NSFWEnabled) INFO("Endpoint URL: {}", endpointURL);
+    
+    // Get the image url from the api
+    NyaAPI::get_path_from_list_api(source, endpointURL, 10.0f, 0, [this, finished, NSFWEnabled](bool success, std::string url) {
+        // If we failed to get the image url
+        if (!success) {
+            // Error getting things
+            ERROR("Failed to load image from api");
+
+            // getLogger().Backtrace(20);
+            BSML::MainThreadScheduler::Schedule([this, finished]{
+                this->SetErrorImage();
+                
+                // Set is loading status
+                this->isLoading = false;
+                if (this->imageLoadingChange.size() > 0) this->imageLoadingChange.invoke(false);
+                
+                if (finished != nullptr) finished(false);
+            });
+            return;
+        }
+
+        if (!NSFWEnabled) INFO("Image URL: {}", url);
+
+        BSML::MainThreadScheduler::Schedule([this, url, finished, NSFWEnabled]{
+            // Make temp file name
+            std::string fileExtension = FileUtils::GetFileFormat(url);
+            std::string fileName = Nya::Utils::RandomString(8);
+
+            std::string filePath = NyaGlobals::tempPath + fileName  + fileExtension;
+            std::string fileFullName = fileName  + fileExtension;
+
+            Nya::Utils::DownloadFile(url, filePath, [this, finished, url, NSFWEnabled, fileFullName](bool success, std::string path) {
+                if (!success ) {
+                    this->SetErrorImage();
+
+                    // Set is loading status
+                    this->isLoading = false;
+                    if (this->imageLoadingChange.size() > 0) this->imageLoadingChange.invoke(false);
+
+                    if (finished != nullptr) finished(false);
+                } else {
+                    this->lastImageURL = url;
+                    this->tempName = fileFullName;
+                    this->isNSFW = NSFWEnabled;
+                    
+                    // Check if image view is still valid and if not, don't set the image
+                    if (this->imageView == nullptr || this->imageView->___m_CachedPtr.m_value == nullptr) {
+                        if (finished != nullptr) finished(false);
+                        return;
+                    }
+
+                    BSML::Utilities::SetImage(this->imageView,  "file://" + path, true, BSML::Utilities::ScaleOptions(), false, [finished, this]() {
+                        // Set is loading status
+                        this->isLoading = false;
+                        if (this->imageLoadingChange.size() > 0) this->imageLoadingChange.invoke(false);
+                 
+                        if (finished != nullptr) finished(true);
+                    }, [finished, this](BSML::Utilities::ImageLoadError error) {
+                      this->SetErrorImage();
+
+                      // Set is loading status
+                      this->isLoading = false;
+                      if (this->imageLoadingChange.size() > 0) this->imageLoadingChange.invoke(false);
+
+                      if (finished != nullptr) finished(false);
+                  });
+                }
+                
+            });
+            
+        });
+            
+     
+    }, authenticated ? "FP-Public-naEjca70OhKMtq67WpzaN8Gs" : "");
   }
 }
 
