@@ -11,7 +11,7 @@ struct EndpointCategory {
     std::string url;
 };
 
-enum DataMode { Unsupported, Json, Local, Authenticated };
+enum DataMode { Unsupported, List, Json, Local, Authenticated };
 
 struct SourceData {
     // SourceData(
@@ -37,6 +37,7 @@ std::vector<StringW> get_source_list();
 void get_path_from_json_api(SourceData* source,
                             std::string url,
                             float timeoutInSeconds,
+                            int indexNumber,
                             std::function<void(bool success, std::string url)> finished,
                             std::string apiKey = "");
 // void NyaAPI::downloadImageFile();

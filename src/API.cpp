@@ -306,6 +306,46 @@ void NyaAPI::get_path_from_json_api(
     }).detach();
 }
 
+void NyaAPI::get_path_from_list_api(
+    SourceData* source,
+    std::string url,
+    float timeoutInSeconds,
+    int indexNumber,
+    std::function<void(bool success, std::string url)> finished, std::string apiKey
+) {
+    if (finished == nullptr) {
+        return ERROR("Can't get data async without a callback to use it with");
+    }
+    if (source == nullptr) {
+        ERROR("Source is null");
+        return finished(false, "");
+    }
+
+    auto options = WebUtils::URLOptions(url);
+    options.timeOut = timeoutInSeconds;
+    if (apiKey != "") { options.headers.emplace("Authorization", apiKey); }
+    
+    std::thread([propertyName = source->propertyName, options, finished] {
+        auto response = WebUtils::Get<WebUtils::JsonResponse>(options);
+
+        if (!response.IsSuccessful()) return finished(false, "");
+
+        auto result = response.responseData.has_value();
+        if (!result) return finished(false, "");
+
+        auto& document = response.responseData.value()[indexNumber];
+        if(document.HasParseError() || !document.IsObject()) return finished(false, "");
+            
+        auto itr = document.FindMember(propertyName);
+        if (itr != document.MemberEnd() && itr->value.IsString()) {
+            std::string url(itr->value.GetString(), itr->value.GetStringLength());
+            return finished(true, url);
+        } else {
+            return finished(false, "");
+        }
+    }).detach();
+}
+
 /**
      * @brief Finds the string in a list
      * 

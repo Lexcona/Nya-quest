@@ -249,7 +249,7 @@ void Nya::ImageView::GetImage(std::function<void(bool success)> finished = nullp
     if (!NSFWEnabled) INFO("Endpoint URL: {}", endpointURL);
     
     // Get the image url from the api
-    NyaAPI::get_path_from_json_api(source, endpointURL, 10.0f, [this, finished, NSFWEnabled](bool success, std::string url) {
+    NyaAPI::get_path_from_list_api(source, endpointURL, 10.0f, 0, [this, finished, NSFWEnabled](bool success, std::string url) {
         // If we failed to get the image url
         if (!success) {
             // Error getting things
@@ -321,7 +321,9 @@ void Nya::ImageView::GetImage(std::function<void(bool success)> finished = nullp
             
      
     }, authenticated ? "FP-Public-naEjca70OhKMtq67WpzaN8Gs" : "");
-  }           
+  } else if (source->Mode == DataMode::List) {
+
+  }
 }
 
 void Nya::ImageView::SetErrorImage()
