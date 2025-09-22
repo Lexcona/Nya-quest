@@ -15,7 +15,7 @@ inline std::map<std::string, NyaAPI::SourceData> endpoint_data = {
                 {"azurlane", "sfw/img/azurlane"},
                 {"chibi", "sfw/img/chibi"},
                 {"christmas", "sfw/img/christmas"},
-                // {"ddlc", "sfw/img/ddlc"},
+                {"ddlc", "sfw/img/ddlc"},
                 {"halloween", "sfw/img/halloween"},
                 {"holo", "sfw/img/holo"},
                 {"kitsune", "sfw/img/kitsune"},
