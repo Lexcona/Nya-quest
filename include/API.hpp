@@ -37,6 +37,11 @@ std::vector<StringW> get_source_list();
 void get_path_from_json_api(SourceData* source,
                             std::string url,
                             float timeoutInSeconds,
+                            std::function<void(bool success, std::string url)> finished,
+                            std::string apiKey = "");
+void get_path_from_list_api(SourceData* source,
+                            std::string url,
+                            float timeoutInSeconds,
                             int indexNumber,
                             std::function<void(bool success, std::string url)> finished,
                             std::string apiKey = "");

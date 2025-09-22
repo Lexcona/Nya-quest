@@ -225,6 +225,17 @@ inline std::map<std::string, NyaAPI::SourceData> endpoint_data = {
             "link"
         }
     },
+    {"Nekos API",
+        {
+            "https://api.nekosapi.com/v4/images/random?limit=100",
+            DataMode::List,
+            {
+                {"random", ""},
+            },
+            {},
+            "url"
+        }
+    },
     {"Local Files",
         {
             "",
@@ -311,30 +322,42 @@ void NyaAPI::get_path_from_list_api(
     std::string url,
     float timeoutInSeconds,
     int indexNumber,
-    std::function<void(bool success, std::string url)> finished, std::string apiKey
+    std::function<void(bool success, std::string url)> finished,
+    std::string apiKey
 ) {
-    if (finished == nullptr) {
+    if (!finished) {
         return ERROR("Can't get data async without a callback to use it with");
     }
-    if (source == nullptr) {
+    if (!source) {
         ERROR("Source is null");
         return finished(false, "");
     }
 
     auto options = WebUtils::URLOptions(url);
     options.timeOut = timeoutInSeconds;
-    if (apiKey != "") { options.headers.emplace("Authorization", apiKey); }
+    if (!apiKey.empty()) {
+        options.headers.emplace("Authorization", apiKey);
+    }
     
-    std::thread([propertyName = source->propertyName, options, finished] {
+    std::thread([propertyName = std::string(source->propertyName),
+                 options,
+                 finished,
+                 indexNumber] {
         auto response = WebUtils::Get<WebUtils::JsonResponse>(options);
 
-        if (!response.IsSuccessful()) return finished(false, "");
+        if (!response.IsSuccessful()) 
+            return finished(false, "");
 
-        auto result = response.responseData.has_value();
-        if (!result) return finished(false, "");
+        if (!response.responseData.has_value()) 
+            return finished(false, "");
 
-        auto& document = response.responseData.value()[indexNumber];
-        if(document.HasParseError() || !document.IsObject()) return finished(false, "");
+        auto& arr = response.responseData.value();
+        if (indexNumber < 0 || indexNumber >= static_cast<int>(arr.Size()))
+            return finished(false, "");
+
+        auto& document = arr[indexNumber];
+        if (!document.IsObject()) 
+            return finished(false, "");
             
         auto itr = document.FindMember(propertyName);
         if (itr != document.MemberEnd() && itr->value.IsString()) {
@@ -345,6 +368,7 @@ void NyaAPI::get_path_from_list_api(
         }
     }).detach();
 }
+
 
 /**
      * @brief Finds the string in a list
