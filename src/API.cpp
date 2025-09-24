@@ -1,6 +1,9 @@
 #include "API.hpp"
 #include "web-utils/shared/WebUtils.hpp"
 #include "logging.hpp"
+#include <iostream>
+#include <sstream>
+#include <string>
 
 using namespace NyaAPI;
 
@@ -225,15 +228,106 @@ inline std::map<std::string, NyaAPI::SourceData> endpoint_data = {
             "link"
         }
     },
-    {"Nekos API",
+    {"nekosia.cat",
         {
-            "https://api.nekosapi.com/v4/images/random?limit=100",
-            DataMode::List,
+            "https://api.nekosia.cat/api/v1/images/",
+            DataMode::Json,
             {
-                {"random", ""},
+                {"catgirl", "catgirl"},
+                {"foxgirl", "foxgirl"},
+                {"wolf-girl", "wolf-girl"},
+                {"animal-ears", "animal-ears"},
+                {"tail", "tail"},
+                {"tail-with-ribbon", "tail-with-ribbon"},
+                {"tail-from-under-skirt", "tail-from-under-skirt"},
+                {"cute", "cute"},
+                {"cuteness-is-justice", "cuteness-is-justice"},
+                {"blue-archive", "blue-archive"},
+                {"girl", "girl"},
+                {"young-girl", "young-girl"},
+                {"maid", "maid"},
+                {"maid-uniform", "maid-uniform"},
+                {"vtuber", "vtuber"},
+                {"w-sitting", "w-sitting"},
+                {"lying-down", "lying-down"},
+                {"hands-forming-a-heart", "hands-forming-a-heart"},
+                {"wink", "wink"},
+                {"valentine", "valentine"},
+                {"thigh-high-socks", "thigh-high-socks"},
+                {"headphones", "headphones"},
+                {"knee-high-socks", "knee-high-socks"},
+                {"white-tights", "white-tights"},
+                {"black-tights", "black-tights"},
+                {"heterochromia", "heterochromia"},
+                {"uniform", "uniform"},
+                {"sailor-uniform", "sailor-uniform"},
+                {"hoodie", "hoodie"},
+                {"ribbon", "ribbon"},
+                {"white-hair", "white-hair"},
+                {"blue-hair", "blue-hair"},
+                {"long-hair", "long-hair"},
+                {"blonde", "blonde"},
+                {"blue-eyes", "blue-eyes"},
+                {"purple-eyes", "purple-eyes"}
             },
             {},
-            "url"
+            "image/original/url"
+        }
+    },
+    {"nekos.best",
+        {
+            "https://nekos.best/api/v2/",
+            DataMode::Json,
+            {
+                {"husbando", "husbando"},
+                {"kitsune", "kitsune"},
+                {"neko", "neko"},
+                {"waifu", "waifu"},
+                {"angry", "angry"},
+                {"baka", "baka"},
+                {"bite", "bite"},
+                {"blush", "blush"},
+                {"bored", "bored"},
+                {"cry", "cry"},
+                {"cuddle", "cuddle"},
+                {"dance", "dance"},
+                {"facepalm", "facepalm"},
+                {"feed", "feed"},
+                {"handhold", "handhold"},
+                {"handshake", "handshake"},
+                {"happy", "happy"},
+                {"highfive", "highfive"},
+                {"hug", "hug"},
+                {"kick", "kick"},
+                {"kiss", "kiss"},
+                {"laugh", "laugh"},
+                {"lurk", "lurk"},
+                {"nod", "nod"},
+                {"nom", "nom"},
+                {"nope", "nope"},
+                {"pat", "pat"},
+                {"peck", "peck"},
+                {"poke", "poke"},
+                {"pout", "pout"},
+                {"punch", "punch"},
+                {"run", "run"},
+                {"shoot", "shoot"},
+                {"shrug", "shrug"},
+                {"slap", "slap"},
+                {"sleep", "sleep"},
+                {"smile", "smile"},
+                {"smug", "smug"},
+                {"stare", "stare"},
+                {"think", "think"},
+                {"thumbsup", "thumbsup"},
+                {"tickle", "tickle"},
+                {"wave", "wave"},
+                {"wink", "wink"},
+                {"yawn", "yawn"},
+                {"yeet", "yeet"},
+            },
+            {},
+            "results/0/url"
         }
     },
     {"Local Files",
@@ -278,11 +372,13 @@ std::vector<StringW> NyaAPI::get_source_list() {
  * @param finished The function to run when the request is finished
  * @param apiKey The api key to use (optional)
  */
+
 void NyaAPI::get_path_from_json_api(
     SourceData* source,
     std::string url,
     float timeoutInSeconds,
-    std::function<void(bool success, std::string url)> finished, std::string apiKey
+    std::function<void(bool success, std::string url)> finished, 
+    std::string apiKey
 ) {
     if (finished == nullptr) {
         return ERROR("Can't get data async without a callback to use it with");
@@ -294,81 +390,57 @@ void NyaAPI::get_path_from_json_api(
 
     auto options = WebUtils::URLOptions(url);
     options.timeOut = timeoutInSeconds;
-    if (apiKey != "") { options.headers.emplace("Authorization", apiKey); }
+    if (!apiKey.empty()) { 
+        options.headers.emplace("Authorization", apiKey); 
+    }
     
     std::thread([propertyName = source->propertyName, options, finished] {
         auto response = WebUtils::Get<WebUtils::JsonResponse>(options);
 
         if (!response.IsSuccessful()) return finished(false, "");
-
-        auto result = response.responseData.has_value();
-        if (!result) return finished(false, "");
+        if (!response.responseData.has_value()) return finished(false, "");
 
         auto& document = response.responseData.value();
-        if(document.HasParseError() || !document.IsObject()) return finished(false, "");
-            
-        auto itr = document.FindMember(propertyName);
-        if (itr != document.MemberEnd() && itr->value.IsString()) {
-            std::string url(itr->value.GetString(), itr->value.GetStringLength());
-            return finished(true, url);
+        if (document.HasParseError() || !document.IsObject()) return finished(false, "");
+
+        rapidjson::Value* current = &document;
+        std::stringstream ss(propertyName);
+        std::string token;
+
+        while (std::getline(ss, token, '/')) {
+            if (current->IsObject()) {
+                auto itr = current->FindMember(token.c_str());
+                if (itr == current->MemberEnd()) {
+                    return finished(false, "");
+                }
+                current = &itr->value;
+            }
+            else if (current->IsArray()) {
+                try {
+                    size_t idx = std::stoul(token);
+                    if (idx >= current->Size()) {
+                        return finished(false, "");
+                    }
+                    current = &(*current)[idx];
+                }
+                catch (...) {
+                    return finished(false, "");
+                }
+            }
+            else {
+                return finished(false, "");
+            }
+        }
+
+
+        if (current->IsString()) {
+            std::string result(current->GetString(), current->GetStringLength());
+            return finished(true, result);
         } else {
             return finished(false, "");
         }
     }).detach();
 }
-
-void NyaAPI::get_path_from_list_api(
-    SourceData* source,
-    std::string url,
-    float timeoutInSeconds,
-    int indexNumber,
-    std::function<void(bool success, std::string url)> finished,
-    std::string apiKey
-) {
-    if (!finished) {
-        return ERROR("Can't get data async without a callback to use it with");
-    }
-    if (!source) {
-        ERROR("Source is null");
-        return finished(false, "");
-    }
-
-    auto options = WebUtils::URLOptions(url);
-    options.timeOut = timeoutInSeconds;
-    if (!apiKey.empty()) {
-        options.headers.emplace("Authorization", apiKey);
-    }
-    
-    std::thread([propertyName = std::string(source->propertyName),
-                 options,
-                 finished,
-                 indexNumber] {
-        auto response = WebUtils::Get<WebUtils::JsonResponse>(options);
-
-        if (!response.IsSuccessful()) 
-            return finished(false, "");
-
-        if (!response.responseData.has_value()) 
-            return finished(false, "");
-
-        auto& arr = response.responseData.value();
-        if (indexNumber < 0 || indexNumber >= static_cast<int>(arr.Size()))
-            return finished(false, "");
-
-        auto& document = arr[indexNumber];
-        if (!document.IsObject()) 
-            return finished(false, "");
-            
-        auto itr = document.FindMember(propertyName);
-        if (itr != document.MemberEnd() && itr->value.IsString()) {
-            std::string url(itr->value.GetString(), itr->value.GetStringLength());
-            return finished(true, url);
-        } else {
-            return finished(false, "");
-        }
-    }).detach();
-}
-
 
 /**
      * @brief Finds the string in a list
