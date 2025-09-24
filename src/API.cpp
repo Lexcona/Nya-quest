@@ -1,6 +1,7 @@
 #include "API.hpp"
 #include "web-utils/shared/WebUtils.hpp"
 #include "logging.hpp"
+#include "rapidjson/pointer.h"
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -404,6 +405,61 @@ void NyaAPI::get_path_from_json_api(
         if (document.HasParseError() || !document.IsObject()) return finished(false, "");
 
         rapidjson::Value* current = &document;
+
+        std::string formatedPropertyName = "";
+
+        if (!propertyName.starts_with("/")) {
+            formatedPropertyName = "/"+propertyName;
+        } else {
+            formatedPropertyName = propertyName;
+        }
+
+        // https://rapidjson.org/md_doc_pointer.html
+        current = Pointer(formatedPropertyName).Get(document);
+
+        if (current->IsString()) {
+            std::string result(current->GetString(), current->GetStringLength());
+            return finished(true, result);
+        } else {
+            return finished(false, "");
+        }
+    }).detach();
+}
+
+
+/*
+// Ignore this version, just a backup just in case I mess something up.
+void NyaAPI::get_path_from_json_api(
+    SourceData* source,
+    std::string url,
+    float timeoutInSeconds,
+    std::function<void(bool success, std::string url)> finished, 
+    std::string apiKey
+) {
+    if (finished == nullptr) {
+        return ERROR("Can't get data async without a callback to use it with");
+    }
+    if (source == nullptr) {
+        ERROR("Source is null");
+        return finished(false, "");
+    }
+
+    auto options = WebUtils::URLOptions(url);
+    options.timeOut = timeoutInSeconds;
+    if (!apiKey.empty()) { 
+        options.headers.emplace("Authorization", apiKey); 
+    }
+    
+    std::thread([propertyName = source->propertyName, options, finished] {
+        auto response = WebUtils::Get<WebUtils::JsonResponse>(options);
+
+        if (!response.IsSuccessful()) return finished(false, "");
+        if (!response.responseData.has_value()) return finished(false, "");
+
+        auto& document = response.responseData.value();
+        if (document.HasParseError() || !document.IsObject()) return finished(false, "");
+
+        rapidjson::Value* current = &document;
         std::stringstream ss(propertyName);
         std::string token;
 
@@ -441,7 +497,7 @@ void NyaAPI::get_path_from_json_api(
         }
     }).detach();
 }
-
+*/
 /**
      * @brief Finds the string in a list
      * 
