@@ -4,7 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-
+ 
 using namespace NyaAPI;
 
 inline std::map<std::string, NyaAPI::SourceData> endpoint_data = {
