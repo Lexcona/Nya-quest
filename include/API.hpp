@@ -29,6 +29,7 @@ struct SourceData {
     std::vector<EndpointCategory> SfwEndpoints;
     std::vector<EndpointCategory> NsfwEndpoints;
     std::string propertyName;
+    std::string apiKey = "";
 };
 
 // Function gets url for the current selected category
@@ -37,8 +38,8 @@ std::vector<StringW> get_source_list();
 void get_path_from_json_api(SourceData* source,
                             std::string url,
                             float timeoutInSeconds,
-                            std::function<void(bool success, std::string url)> finished,
-                            std::string apiKey = "");
+                            std::function<void(bool success, std::string url)> finished
+                            );
 // void NyaAPI::downloadImageFile();
 std::map<std::string, SourceData>* getEndpoints();
 

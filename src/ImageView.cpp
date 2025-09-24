@@ -320,7 +320,7 @@ void Nya::ImageView::GetImage(std::function<void(bool success)> finished = nullp
         });
             
      
-    }, authenticated ? "FP-Public-naEjca70OhKMtq67WpzaN8Gs" : "");
+    });
   }
 }
 

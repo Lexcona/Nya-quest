@@ -1,12 +1,17 @@
 #include "API.hpp"
 #include "web-utils/shared/WebUtils.hpp"
 #include "logging.hpp"
-#include "rapidjson/pointer.h"
+#include "beatsaber-hook/shared/rapidjson/include/rapidjson/pointer.h"
+
+/*
+// For old path setup
 #include <iostream>
 #include <sstream>
 #include <string>
- 
+*/ 
+
 using namespace NyaAPI;
+
 
 inline std::map<std::string, NyaAPI::SourceData> endpoint_data = {
     {"fluxpoint.dev",
@@ -116,7 +121,8 @@ inline std::map<std::string, NyaAPI::SourceData> endpoint_data = {
                 {"toys", "nsfw/gif/toys"},
                 {"yuri gif", "nsfw/gif/yuri"},
             },
-            "file"
+            "file",
+            "FP-Public-naEjca70OhKMtq67WpzaN8Gs"
         }
     },
     {"waifu.pics",
@@ -159,7 +165,7 @@ inline std::map<std::string, NyaAPI::SourceData> endpoint_data = {
                 {"trap", "nsfw/trap"},
                 {"blowjob", "nsfw/blowjob"},
             },
-            "url"
+            "url",
         }
     },
     {"Bocchi",
@@ -378,8 +384,7 @@ void NyaAPI::get_path_from_json_api(
     SourceData* source,
     std::string url,
     float timeoutInSeconds,
-    std::function<void(bool success, std::string url)> finished, 
-    std::string apiKey
+    std::function<void(bool success, std::string url)> finished
 ) {
     if (finished == nullptr) {
         return ERROR("Can't get data async without a callback to use it with");
@@ -388,15 +393,14 @@ void NyaAPI::get_path_from_json_api(
         ERROR("Source is null");
         return finished(false, "");
     }
-
-    auto options = WebUtils::URLOptions(url);
-    options.timeOut = timeoutInSeconds;
-    if (!apiKey.empty()) { 
-        options.headers.emplace("Authorization", apiKey); 
-    }
     
-    std::thread([propertyName = source->propertyName, options, finished] {
-        auto response = WebUtils::Get<WebUtils::JsonResponse>(options);
+    std::thread([apiKey = source->apiKey, propertyName = source->propertyName, url, timeoutInSeconds, finished] {
+        auto reqOptions = WebUtils::URLOptions(url);
+        reqOptions.timeOut = timeoutInSeconds;
+        if (!apiKey.empty()) { 
+            reqOptions.headers.emplace("Authorization", apiKey); 
+        }
+        auto response = WebUtils::Get<WebUtils::JsonResponse>(reqOptions);
 
         if (!response.IsSuccessful()) return finished(false, "");
         if (!response.responseData.has_value()) return finished(false, "");
@@ -415,7 +419,7 @@ void NyaAPI::get_path_from_json_api(
         }
 
         // https://rapidjson.org/md_doc_pointer.html
-        current = Pointer(formatedPropertyName).Get(document);
+        current = rapidjson::Pointer(formatedPropertyName).Get(document);
 
         if (current->IsString()) {
             std::string result(current->GetString(), current->GetStringLength());
