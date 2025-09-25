@@ -2,13 +2,7 @@
 #include "web-utils/shared/WebUtils.hpp"
 #include "logging.hpp"
 #include "beatsaber-hook/shared/rapidjson/include/rapidjson/pointer.h"
-
-/*
-// For old path setup
-#include <iostream>
-#include <sstream>
-#include <string>
-*/ 
+#include "Utils/Utils.hpp"
 
 using namespace NyaAPI;
 
@@ -17,7 +11,7 @@ inline std::map<std::string, NyaAPI::SourceData> endpoint_data = {
     {"fluxpoint.dev",
         {
             "https://gallery.fluxpoint.dev/api/",
-            DataMode::Authenticated,
+            DataMode::Json,
             {
                 // Images
                 {"anime", "sfw/img/anime"},
@@ -374,15 +368,14 @@ std::vector<StringW> NyaAPI::get_source_list() {
  * @brief Get the path from a json api
  * WARNING: This function runs finished not on the main thread
  * @param source The source data
- * @param url The url to get the data from
+ * @param endpoint The endpoint to use
  * @param timeoutInSeconds The timeout in seconds
  * @param finished The function to run when the request is finished
- * @param apiKey The api key to use (optional)
  */
-
 void NyaAPI::get_path_from_json_api(
     SourceData* source,
-    std::string url,
+    std::string endpoint,
+    bool nsfw,
     float timeoutInSeconds,
     std::function<void(bool success, std::string url)> finished
 ) {
@@ -393,115 +386,47 @@ void NyaAPI::get_path_from_json_api(
         ERROR("Source is null");
         return finished(false, "");
     }
-    
-    std::thread([apiKey = source->apiKey, propertyName = source->propertyName, url, timeoutInSeconds, finished] {
-        auto reqOptions = WebUtils::URLOptions(url);
+
+    std::string endpointURL = source->BaseEndpoint + endpoint;
+
+    if (!nsfw) INFO("Endpoint URL: {}", endpointURL);
+
+    std::thread([source, endpointURL, timeoutInSeconds, finished] {
+        auto reqOptions = WebUtils::URLOptions(endpointURL);
         reqOptions.timeOut = timeoutInSeconds;
-        if (!apiKey.empty()) { 
-            reqOptions.headers.emplace("Authorization", apiKey); 
+        if (!source->apiKey.empty()) {
+            reqOptions.headers.emplace("Authorization", source->apiKey);
         }
         auto response = WebUtils::Get<WebUtils::JsonResponse>(reqOptions);
 
-        if (!response.IsSuccessful()) return finished(false, "");
-        if (!response.responseData.has_value()) return finished(false, "");
+        if (
+            !response.IsSuccessful() || 
+            !response.responseData.has_value()
+        ) return finished(false, "");
 
         auto& document = response.responseData.value();
-        if (document.HasParseError() || !document.IsObject()) return finished(false, "");
-
-        rapidjson::Value* current = &document;
-
+        if (
+            document.HasParseError() ||
+            !document.IsObject()
+        ) return finished(false, "");
+      
         std::string formatedPropertyName = "";
 
-        if (!propertyName.starts_with("/")) {
-            formatedPropertyName = "/"+propertyName;
+        if (!source->propertyName.starts_with("/")) {
+            formatedPropertyName = "/"+ source->propertyName;
         } else {
-            formatedPropertyName = propertyName;
+            formatedPropertyName = source->propertyName;
         }
 
         // https://rapidjson.org/md_doc_pointer.html
-        current = rapidjson::Pointer(formatedPropertyName).Get(document);
+        rapidjson::Value* current = rapidjson::Pointer(formatedPropertyName).Get(document);
+        if (current == nullptr || !current->IsString()) return finished(false, "");
 
-        if (current->IsString()) {
-            std::string result(current->GetString(), current->GetStringLength());
-            return finished(true, result);
-        } else {
-            return finished(false, "");
-        }
+        std::string result(current->GetString(), current->GetStringLength());
+        return finished(true, result);
     }).detach();
 }
 
-
-/*
-// Ignore this version, just a backup just in case I mess something up.
-void NyaAPI::get_path_from_json_api(
-    SourceData* source,
-    std::string url,
-    float timeoutInSeconds,
-    std::function<void(bool success, std::string url)> finished, 
-    std::string apiKey
-) {
-    if (finished == nullptr) {
-        return ERROR("Can't get data async without a callback to use it with");
-    }
-    if (source == nullptr) {
-        ERROR("Source is null");
-        return finished(false, "");
-    }
-
-    auto options = WebUtils::URLOptions(url);
-    options.timeOut = timeoutInSeconds;
-    if (!apiKey.empty()) { 
-        options.headers.emplace("Authorization", apiKey); 
-    }
-    
-    std::thread([propertyName = source->propertyName, options, finished] {
-        auto response = WebUtils::Get<WebUtils::JsonResponse>(options);
-
-        if (!response.IsSuccessful()) return finished(false, "");
-        if (!response.responseData.has_value()) return finished(false, "");
-
-        auto& document = response.responseData.value();
-        if (document.HasParseError() || !document.IsObject()) return finished(false, "");
-
-        rapidjson::Value* current = &document;
-        std::stringstream ss(propertyName);
-        std::string token;
-
-        while (std::getline(ss, token, '/')) {
-            if (current->IsObject()) {
-                auto itr = current->FindMember(token.c_str());
-                if (itr == current->MemberEnd()) {
-                    return finished(false, "");
-                }
-                current = &itr->value;
-            }
-            else if (current->IsArray()) {
-                try {
-                    size_t idx = std::stoul(token);
-                    if (idx >= current->Size()) {
-                        return finished(false, "");
-                    }
-                    current = &(*current)[idx];
-                }
-                catch (...) {
-                    return finished(false, "");
-                }
-            }
-            else {
-                return finished(false, "");
-            }
-        }
-
-
-        if (current->IsString()) {
-            std::string result(current->GetString(), current->GetStringLength());
-            return finished(true, result);
-        } else {
-            return finished(false, "");
-        }
-    }).detach();
-}
-*/
 /**
      * @brief Finds the string in a list
      * 
@@ -555,14 +480,9 @@ void NyaAPI::get_path_from_json_api(
     }
 
 EndpointCategory* NyaAPI::getRandomEndpoint(std::vector<EndpointCategory>* values) {
-    // If there are no values, return null
     int count = values->size();
-    if (count == 0) {
-        return nullptr;
-    }
+    if (count == 0) return nullptr;
 
-    // Get random index
-    int index = rand() % count;
-    // Return value at index
-    return &((*values)[index]); 
+    int index = Nya::Utils::random(0, count - 1);
+    return &values->at(index);
 }
