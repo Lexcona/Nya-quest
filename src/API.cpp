@@ -162,6 +162,36 @@ inline std::map<std::string, NyaAPI::SourceData> endpoint_data = {
             "url",
         }
     },
+    /*
+    // Might come back to figure out why the 404 error is only happening in the mod and not in anything else
+    {"waifu.im",
+        {
+            "https://api.waifu.im/search?included_tags=",
+            DataMode::Json,
+            {
+                {"waifu", "waifu"},
+                {"maid", "maid"},
+                {"marin-kitagawa", "marin-kitagawa"},
+                {"mori-calliope", "mori-calliope"},
+                {"raiden-shogun", "raiden-shogun"},
+                {"oppai", "oppai"},
+                {"selfies", "selfies"},
+                {"uniform", "uniform"},
+                {"kamisato-ayaka", "kamisato-ayaka"},
+            },
+            {
+                {"ass", "ass"},
+                {"hentai", "hentai"},
+                {"milf", "milf"},
+                {"oral", "oral"},
+                {"paizuri", "paizuri"},
+                {"ecchi", "ecchi"},
+                {"ero", "ero"},
+            },
+            "images/0/url",
+        }
+    },
+    */
     {"Bocchi",
         {
             "https://boccher.pixelboom.dev/api/",
@@ -229,7 +259,7 @@ inline std::map<std::string, NyaAPI::SourceData> endpoint_data = {
             "link"
         }
     },
-    {"nekosia.cat",
+    {"Nekosia",
         {
             "https://api.nekosia.cat/api/v1/images/",
             DataMode::Json,
@@ -329,6 +359,42 @@ inline std::map<std::string, NyaAPI::SourceData> endpoint_data = {
             },
             {},
             "results/0/url"
+        }
+    },
+    {"nekos.life",
+        {
+            "https://nekos.life/api/v2/img/",
+            DataMode::Json,
+            {
+                {"neko gif", "ngif"},
+                {"hug", "hug"},
+                {"gecg", "gecg"},
+                {"pat", "pat"},
+                {"cuddle", "cuddle"},
+                {"meow", "meow"},
+                {"gasm", "gasm"},
+                {"goose (Just geese)", "goose"},
+                {"bored", "bored"},
+                {"cry", "cry"},
+                {"cuddle", "cuddle"},
+                {"feed", "feed"},
+                {"slap", "slap"},
+                {"wallpaper", "wallpaper"},
+                {"neko", "neko"},
+                {"lizard", "lizard"},
+                {"woof", "woof"},
+                {"fox_girl", "fox_girl"},
+                {"8ball", "8ball"},
+                {"kiss", "kiss"},
+                {"avatar", "avatar"},
+                {"waifu", "waifu"},
+                {"smug", "smug"},
+            },
+            {
+                {"lewd", "lewd"},
+                {"spank", "spank"},
+            },
+            "url"
         }
     },
     {"Local Files",
