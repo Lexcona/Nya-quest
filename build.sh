@@ -4,10 +4,16 @@ rm Nya.qmod
 
 echo "Removing oldness"
 rm -rf build
+rm -rf logs
 
 echo "Bulding da dir"
 mkdir -p build
 cd build
+
+echo "Log da dir"
+mkdir -p ../logs
+
+set -e
 
 echo "cmaking it"
 cmake .. \
@@ -15,10 +21,10 @@ cmake .. \
   -DANDROID_ABI=arm64-v8a \
   -DANDROID_PLATFORM=android-24 \
   -DCMAKE_BUILD_TYPE=Release \
-  -G Ninja
+  -G Ninja | tee ../logs/cmake_log.txt
 
 echo "Building funnies"
-ninja
+ninja | tee ../logs/ninja_log.txt
 
 echo "Zipping bombing it"
 mkdir -p Nya
@@ -31,5 +37,7 @@ cd Nya
 zip -r Nya.zip *
 
 mv Nya.zip ../../Nya.qmod
+
+rm -rf Nya
 
 echo "Done :3"
