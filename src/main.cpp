@@ -16,8 +16,6 @@
 #include "UnityEngine/SceneManagement/SceneManager.hpp"
 #include "NyaConfig.hpp"
 #include "bsml/shared/BSML/MainThreadScheduler.hpp"
-#include "GlobalNamespace/OVRInput.hpp"
-#include "GlobalNamespace/OculusVRHelper.hpp"
 #include "GlobalNamespace/MainFlowCoordinator.hpp"
 #include "Events.hpp"
 #include "UI/FlowCoordinators/NyaSettingsFlowCoordinator.hpp"
@@ -25,7 +23,7 @@
 #include <string>
 #include "logging.hpp"
 #include "Utils/FileUtils.hpp"
-
+#include "TaskRunner.hpp"
 // beatsaber-hook is a modding framework that lets us call functions and fetch field values from in the game
 // It also allows creating objects, configuration, and importantly, hooking methods to modify their values
 #include "beatsaber-hook/shared/utils/il2cpp-functions.hpp"
@@ -258,40 +256,6 @@ void MigrateOldImages() {
     }
 }
 
-// Handling buttons
-MAKE_HOOK_MATCH(FixedUpdateHook, &GlobalNamespace::OculusVRHelper::FixedUpdate, void, GlobalNamespace::OculusVRHelper* self){
-    FixedUpdateHook(self);
-
-
-     static bool pressedEventAllreadyRun = false;
-    
-    // // 0 Means nothing is assigned, and we dont need to do anything
-     int useButtonValue = getNyaConfig().UseButton.GetValue();
-     if(useButtonValue > 0){
-         // Determine if we need the Right or Left Controller (Right is 2 Left is One)
-         // Definition from: GlobalNamespace::OVRInput::Controller::RTouch
-         int controllerIndex = useButtonValue > 2 ? 1 : 2;
-
-         // Here we correct the Index for direct Usage as Input for OVRInput.Get
-         // After this line the Primary Button A/X (1/3 in Config) is 0 and the Secondary Button (2/4 in Config) is 1
-         // Source: https://developer.oculus.com/documentation/unity/unity-ovrinput/
-         useButtonValue = ((useButtonValue - 1) % 2) + 1;
-
-         bool buttonPressed = GlobalNamespace::OVRInput::Get(GlobalNamespace::OVRInput_Button(useButtonValue), controllerIndex);
-         if(buttonPressed){
-             if(!pressedEventAllreadyRun) {
-                 if (Nya::GlobalEvents::onControllerNya.size() > 0) {
-                     Nya::GlobalEvents::onControllerNya.invoke();
-                     pressedEventAllreadyRun = true;
-                 }
-             }
-         }
-         else {
-             pressedEventAllreadyRun = false;
-         }
-     }
-}
-
 // Called later on in the game loading - a good time to install function hooks
 extern "C" __attribute__((visibility("default"))) void late_load() {
     il2cpp_functions::Init();
@@ -324,7 +288,6 @@ extern "C" __attribute__((visibility("default"))) void late_load() {
 
     INFO("Installing hooks...");
     INSTALL_HOOK(Logger, Pause);
-    INSTALL_HOOK(Logger, FixedUpdateHook);
     INSTALL_HOOK(Logger, Results);
     INSTALL_HOOK(Logger, Unpause);
     INSTALL_HOOK(Logger, Restartbutton);
@@ -333,4 +296,10 @@ extern "C" __attribute__((visibility("default"))) void late_load() {
     INSTALL_HOOK(Logger, SceneManager_Internal_ActiveSceneChanged);
     INSTALL_HOOK(Logger, MainFlowCoordinator_DidActivate);
     INFO("Installed all hooks!");
+
+    INFO("Creating nya TaskRunner...");
+    auto gameObject = UnityEngine::GameObject::New_ctor("NyaTaskRunner");
+    gameObject->AddComponent<Nya::TaskRunner*>();
+    UnityEngine::Object::DontDestroyOnLoad(gameObject);
+    INFO("Created NyaTaskRunner GameObject and added TaskRunner component.");
 }
