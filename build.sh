@@ -2,9 +2,14 @@
 
 rm Nya.qmod
 
+echo "Installing Deps"
+qpm restore
+
 echo "Removing oldness"
 rm -rf build
 rm -rf logs
+rm -rf CMakeCache.txt
+rm -rf CMakeFiles
 
 echo "Bulding da dir"
 mkdir -p build
@@ -17,7 +22,7 @@ set -e
 
 echo "cmaking it"
 cmake .. \
-  -DCMAKE_TOOLCHAIN_FILE=/home/dia/android/ndk/27.2.12479018+preview-0/build/cmake/android.toolchain.cmake \
+  -DCMAKE_TOOLCHAIN_FILE=$HOME/android/ndk/27.3.13750724/build/cmake/android.toolchain.cmake \
   -DANDROID_ABI=arm64-v8a \
   -DANDROID_PLATFORM=android-24 \
   -DCMAKE_BUILD_TYPE=Release \
@@ -25,6 +30,11 @@ cmake .. \
 
 echo "Building funnies"
 ninja | tee ../logs/ninja_log.txt
+
+echo "Generating mod.json"
+cd ..
+qpm qmod manifest
+cd build
 
 echo "Zipping bombing it"
 mkdir -p Nya
