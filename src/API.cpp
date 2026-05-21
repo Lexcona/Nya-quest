@@ -119,6 +119,8 @@ inline std::map<std::string, NyaAPI::SourceData> endpoint_data = {
             "FP-Public-naEjca70OhKMtq67WpzaN8Gs"
         }
     },
+    /*
+    // This one got shutdown, or at least their domain expired.
     {"waifu.pics",
         {
             "https://api.waifu.pics/",
@@ -162,6 +164,7 @@ inline std::map<std::string, NyaAPI::SourceData> endpoint_data = {
             "url",
         }
     },
+    */
     /*
     // Might come back to figure out why the 404 error is only happening in the mod and not in anything else
     {"waifu.im",
